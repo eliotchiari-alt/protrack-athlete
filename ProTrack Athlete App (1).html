@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-900 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROTRACK ATHLETE V3 - Application Multi-Sport Integrée</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 650px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 380px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 340px;
+            }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-900 text-slate-100">
+
+    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl">⚡</span>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-indigo-400">PROTRACK <span class="text-emerald-400">ATHLETE</span></h1>
+                        <p class="text-xs text-slate-400">Suivi Multi-Sport &amp; Gestion de Matériel</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div class="flex items-center bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 text-xs sm:text-sm">
+                        <button onclick="changeWeek(-1)" class="px-1.5 py-0.5 hover:bg-slate-800 rounded text-slate-300">◀</button>
+                        <span id="currentWeekDisplay" class="font-semibold mx-2 text-indigo-300">Semaine 42 (12-18 Oct)</span>
+                        <button onclick="changeWeek(1)" class="px-1.5 py-0.5 hover:bg-slate-800 rounded text-slate-300">▶</button>
+                    </div>
+
+                    <button onclick="exportData()" title="Exporter Sauvegarde JSON" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1">
+                        <span>📥</span> <span class="hidden md:inline">Export</span>
+                    </button>
+                    <label title="Importer Sauvegarde JSON" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer flex items-center gap-1">
+                        <span>📤</span> <span class="hidden md:inline">Import</span>
+                        <input type="file" id="importFileInput" onchange="importData(event)" class="hidden" accept=".json">
+                    </label>
+                </div>
+            </div>
+
+            <nav class="flex space-x-1 sm:space-x-2 overflow-x-auto custom-scrollbar pb-2 pt-1 border-t border-slate-700/50">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active-tab px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap bg-indigo-600 text-white">
+                    📊 Tableau de Bord
+                </button>
+                <button onclick="switchTab('srpe')" id="tab-srpe" class="tab-btn px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">
+                    📈 Charge sRPE
+                </button>
+                <button onclick="switchTab('readiness')" id="tab-readiness" class="tab-btn px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">
+                    🩺 Readiness &amp; Forme
+                </button>
+                <button onclick="switchTab('zones')" id="tab-zones" class="tab-btn px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">
+                    ⚡ Zones VMA / FTP
+                </button>
+                <button onclick="switchTab('garage')" id="tab-garage" class="tab-btn px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">
+                    🔧 Garage &amp; Matériel
+                </button>
+                <button onclick="switchTab('habits')" id="tab-habits" class="tab-btn px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">
+                    🎯 Habitudes &amp; Cibles
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 overflow-y-auto">
+
+        <section id="content-dashboard" class="space-y-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Durée Totale</p>
+                    <p class="text-2xl font-bold text-white mt-1" id="kpiTotalDuration">0 min</p>
+                    <span class="text-xs text-indigo-400 mt-1 inline-block" id="kpiTotalDurationSub">0h 00m prévu</span>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Charge Totale (sRPE)</p>
+                    <p class="text-2xl font-bold text-amber-400 mt-1" id="kpiTotalLoad">0 pts</p>
+                    <span class="text-xs text-slate-400 mt-1 inline-block" id="kpiLoadStatus">Charge optimale</span>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Score Hooper Moyen</p>
+                    <p class="text-2xl font-bold text-emerald-400 mt-1" id="kpiHooperAvg">-- / 20</p>
+                    <span class="text-xs text-emerald-300 mt-1 inline-block" id="kpiHooperSub">Excellente récupération</span>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm">
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Completió Planning</p>
+                    <p class="text-2xl font-bold text-indigo-400 mt-1" id="kpiCompletion">0%</p>
+                    <span class="text-xs text-slate-400 mt-1 inline-block" id="kpiCompletionSub">0 / 7 séances</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <span>🗓️</span> Planning Hebdomadaire (Bi-Séance Compatible)
+                    </h2>
+                    <span class="text-xs text-slate-400">Cliquez sur une séance pour modifier ou valider</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-7 gap-3" id="weekGrid"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-sm">
+                    <h3 class="text-md font-bold text-white mb-3">📊 Répartition de la Charge par Discipline</h3>
+                    <p class="text-xs text-slate-400 mb-4">Affiche la proportion de fatigue générée (sRPE) par chaque sport cette semaine.</p>
+                    <div class="chart-container">
+                        <canvas id="disciplinePieChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-sm">
+                    <h3 class="text-md font-bold text-white mb-3">📈 Volume vs Charge Quotidienne</h3>
+                    <p class="text-xs text-slate-400 mb-4">Comparaison entre la durée (minutes) et la charge physiologique (sRPE) jour par jour.</p>
+                    <div class="chart-container">
+                        <canvas id="dailyLoadBarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="content-srpe" class="space-y-6 hidden">
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-sm">
+                <h2 class="text-lg font-bold text-white mb-2">📈 Suivi de la Charge d'Entraînement (Méthode Foster)</h2>
+                <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                    La méthode <strong>sRPE (Session Rating of Perceived Exertion)</strong> quantifie la fatigue réelle de l'organisme : 
+                    <code class="bg-slate-900 text-amber-400 px-2 py-1 rounded border border-slate-700">Charge (UA) = Durée réelle (min) × RPE (1 à 10)</code>.
+                    Elle permet d'équilibrer l'effort entre des disciplines très différentes (Course, Volley-ball, Musculation, Home-Trainer).
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <span class="text-xs text-slate-400 uppercase font-semibold">Volume Hebdo Moyen</span>
+                        <p class="text-xl font-bold text-indigo-400 mt-1" id="srpeAvgVolume">0h 00m</p>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <span class="text-xs text-slate-400 uppercase font-semibold">Charge Hebdo Moyenne</span>
+                        <p class="text-xl font-bold text-amber-400 mt-1" id="srpeAvgLoad">0 UA</p>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <span class="text-xs text-slate-400 uppercase font-semibold">Indice de Monotonie</span>
+                        <p class="text-xl font-bold text-emerald-400 mt-1" id="srpeMonotony">1.2 (Optimal)</p>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="srpeHistoryChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="content-readiness" class="space-y-6 hidden">
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white">🩺 État de Forme &amp; Score de Hooper Matinal</h2>
+                        <p class="text-sm text-slate-300">Saisissez votre niveau chaque matin (de 1 à 5, 1 étant optimal) pour suivre votre fraîcheur nerveuse et musculaire.</p>
+                    </div>
+                    <button onclick="saveTodayHooper()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+                        <span>💾</span> Enregistrer la Forme du Jour
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Sommeil (1-5)</label>
+                        <select id="hooperSleep" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white">
+                            <option value="1">1 - Très réparateur</option>
+                            <option value="2" selected>2 - Bon sommeil</option>
+                            <option value="3">3 - Sommeil moyen</option>
+                            <option value="4">4 - Agité / Court</option>
+                            <option value="5">5 - Insomnie / Très mauvais</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Fatigue (1-5)</label>
+                        <select id="hooperFatigue" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white">
+                            <option value="1">1 - En pleine forme</option>
+                            <option value="2" selected>2 - Légère fatigue</option>
+                            <option value="3">3 - Fatigue modérée</option>
+                            <option value="4">4 - Très fatigué</option>
+                            <option value="5">5 - Épuisement total</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Courbatures (1-5)</label>
+                        <select id="hooperSoreness" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white">
+                            <option value="1">1 - Aucune douleur</option>
+                            <option value="2" selected>2 - Légère raideur</option>
+                            <option value="3">3 - Courbatures ciblées</option>
+                            <option value="4">4 - Fortes courbatures</option>
+                            <option value="5">5 - Douleur intense</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Stress (1-5)</label>
+                        <select id="hooperStress" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white">
+                            <option value="1">1 - Relaxé / Zéro stress</option>
+                            <option value="2" selected>2 - Stress faible</option>
+                            <option value="3">3 - Stress modéré</option>
+                            <option value="4">4 - Élevé (Études/Taf)</option>
+                            <option value="5">5 - Très intense</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="hooperTrendChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="content-zones" class="space-y-6 hidden">
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-sm">
+                <h2 class="text-lg font-bold text-white mb-2">⚡ Profil Physiologique &amp; Calculateur de Zones</h2>
+                <p class="text-sm text-slate-300 mb-6">Mettez à jour vos constantes pour recalculer automatiquement vos zones de vitesse en course à pied et vos zones de puissance sur Home-Trainer/Vélo.</p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">VMA (km/h)</label>
+                        <input type="number" step="0.1" id="inputVma" value="17.5" onchange="updateProfileZones()" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-lg font-bold text-indigo-400">
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">FTP / PMA (Watts)</label>
+                        <input type="number" id="inputFtp" value="280" onchange="updateProfileZones()" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-lg font-bold text-amber-400">
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">FC Max (bpm)</label>
+                        <input type="number" id="inputFcMax" value="192" onchange="updateProfileZones()" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-lg font-bold text-emerald-400">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead>
+                            <tr class="bg-slate-900 text-slate-400 border-b border-slate-700">
+                                <th class="p-3">Zone</th>
+                                <th class="p-3">Intensité</th>
+                                <th class="p-3">Course (Allure)</th>
+                                <th class="p-3">Vélo (Watts)</th>
+                                <th class="p-3">Fréquence Cardiaque</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zonesTableBody" class="divide-y divide-slate-700/50"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="content-garage" class="space-y-6 hidden">
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>🔧</span> Garage &amp; Suivi d'Usure du Matériel
+                        </h2>
+                        <p class="text-sm text-slate-300">Suivez l'état de vos chaussures, chaîne de vélo et composants pour anticiper les renouvellements.</p>
+                    </div>
+                    <button onclick="openEquipmentModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+                        <span>➕</span> Ajouter du Matériel
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="equipmentGrid"></div>
+            </div>
+        </section>
+
+        <section id="content-habits" class="space-y-6 hidden">
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>🎯</span> Suivi des Habitudes &amp; Routines
+                        </h2>
+                        <p class="text-sm text-slate-300">Cochez vos routines quotidiennes de récupération et d'hygiène de vie.</p>
+                    </div>
+                    <button onclick="addNewHabit()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+                        <span>➕</span> Nouvelle Habitude
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead>
+                            <tr class="bg-slate-900 text-slate-400 border-b border-slate-700">
+                                <th class="p-3">Habitude</th>
+                                <th class="p-3 text-center">Lun</th>
+                                <th class="p-3 text-center">Mar</th>
+                                <th class="p-3 text-center">Mer</th>
+                                <th class="p-3 text-center">Jeu</th>
+                                <th class="p-3 text-center">Ven</th>
+                                <th class="p-3 text-center">Sam</th>
+                                <th class="p-3 text-center">Dim</th>
+                                <th class="p-3 text-center">Cible</th>
+                                <th class="p-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="habitsTableBody" class="divide-y divide-slate-700/50"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="sessionModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-lg w-full shadow-xl space-y-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2" id="modalTitle">
+                <span>✏️</span> Édition de Séance
+            </h3>
+
+            <input type="hidden" id="modalDayIndex">
+            <input type="hidden" id="modalSessionIndex">
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Discipline</label>
+                    <select id="modalSport" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white">
+                        <option value="Course à pied">🏃 Course à pied</option>
+                        <option value="Home-Trainer">⚡ Home-Trainer</option>
+                        <option value="Vélo Route">🚴 Vélo Route</option>
+                        <option value="Volley-ball">🏐 Volley-ball</option>
+                        <option value="Musculation AS">🏋️ Musculation AS</option>
+                        <option value="Repos / Mobilité">🧘 Repos / Mobilité</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Titre de la Séance</label>
+                    <input type="text" id="modalTitleInput" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white" placeholder="ex. VMA courte">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Durée Prévue (min)</label>
+                    <input type="number" id="modalPlanDuration" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Durée Réelle (min)</label>
+                    <input type="number" id="modalRealDuration" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">RPE Effort (1-10)</label>
+                    <input type="number" min="1" max="10" id="modalRpe" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-amber-400 font-bold">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Distance (km)</label>
+                    <input type="number" step="0.1" id="modalDistance" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white" placeholder="Optionnel">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Puissance (W) / Allure</label>
+                    <input type="text" id="modalMetrics" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white" placeholder="ex. 250W ou 4'30/km">
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 pt-2">
+                <input type="checkbox" id="modalCompleted" class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700">
+                <label for="modalCompleted" class="text-sm font-semibold text-emerald-400">Séance Validée &amp; Effectuée</label>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-slate-700">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-600">Annuler</button>
+                <button onclick="saveSessionModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-500">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="equipmentModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full shadow-xl space-y-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <span>🔧</span> Ajouter du Matériel
+            </h3>
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Nom de l'équipement</label>
+                <input type="text" id="eqName" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white" placeholder="ex. Chaussures Nike Pegasus 40">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Sport Associé</label>
+                <select id="eqSport" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white">
+                    <option value="Course à pied">🏃 Course à pied</option>
+                    <option value="Vélo Route / HT">🚴 Vélo Route / HT</option>
+                    <option value="Volley-ball">🏐 Volley-ball</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Km / Heures Actuels</label>
+                    <input type="number" id="eqCurrent" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white" value="0">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Limite Conseillée</label>
+                    <input type="number" id="eqLimit" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white" value="800">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-4 border-t border-slate-700">
+                <button onclick="closeEquipmentModal()" class="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-600">Annuler</button>
+                <button onclick="saveNewEquipment()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-500">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const initialData = {
+            profile: {
+                vma: 17.5,
+                ftp: 280,
+                fcMax: 192
+            },
+            currentWeekIndex: 42,
+            days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
+            sessions: [
+                [
+                    { sport: 'Course à pied', title: 'EF Z2 Régénération', planDuration: 45, realDuration: 45, rpe: 4, completed: true, distance: 8.5, metrics: '5\'15/km' }
+                ],
+                [
+                    { sport: 'Musculation AS', title: 'Renforcement & Squat', planDuration: 60, realDuration: 60, rpe: 7, completed: true, distance: 0, metrics: 'Squat 4x8 @75kg' }
+                ],
+                [
+                    { sport: 'Volley-ball', title: 'Entraînement AS', planDuration: 90, realDuration: 90, rpe: 8, completed: true, distance: 0, metrics: 'Matchs & Sauts' },
+                    { sport: 'Course à pied', title: 'Fractionné Court', planDuration: 30, realDuration: 30, rpe: 9, completed: true, distance: 5.2, metrics: '10x 30"/30"' }
+                ],
+                [
+                    { sport: 'Repos / Mobilité', title: 'Récupération Active', planDuration: 20, realDuration: 20, rpe: 2, completed: true, distance: 0, metrics: 'Stretching' }
+                ],
+                [
+                    { sport: 'Home-Trainer', title: 'PMA 30/30', planDuration: 50, realDuration: 50, rpe: 8, completed: true, distance: 22, metrics: '285W Moyen' }
+                ],
+                [
+                    { sport: 'Vélo Route', title: 'Sortie Longue Z2', planDuration: 150, realDuration: 0, rpe: 5, completed: false, distance: 65, metrics: 'Target 200W' }
+                ],
+                [
+                    { sport: 'Course à pied', title: 'Footing & Lignes', planDuration: 40, realDuration: 0, rpe: 4, completed: false, distance: 7.5, metrics: '5\'00/km' }
+                ]
+            ],
+            hooper: {
+                sleep: 2,
+                fatigue: 2,
+                soreness: 2,
+                stress: 1
+            },
+            equipment: [
+                { id: 1, name: 'Chaussures Nike Pegasus 40', sport: 'Course à pied', current: 420, limit: 800, unit: 'km' },
+                { id: 2, name: 'Chaîne Vélo Canyon Ultimate', sport: 'Vélo Route / HT', current: 2150, limit: 3000, unit: 'km' },
+                { id: 3, name: 'Chaussures Volley Asics Metarise', sport: 'Volley-ball', current: 48, limit: 100, unit: 'h' }
+            ],
+            habits: [
+                { id: 1, name: 'Sommeil 8h+', checks: [true, true, true, false, true, false, false], target: 5 },
+                { id: 2, name: 'Hydratation 2.5L', checks: [true, true, true, true, true, false, false], target: 7 },
+                { id: 3, name: 'Mobilité 15 min', checks: [true, false, true, true, false, false, false], target: 4 }
+            ]
+        };
+
+        let appState = JSON.parse(localStorage.getItem('protrack_data_v3')) || initialData;
+
+        let charts = {};
+
+        function saveState() {
+            localStorage.setItem('protrack_data_v3', JSON.stringify(appState));
+            updateDashboard();
+        }
+
+        function formatChartLabel(str) {
+            if (typeof str !== 'string') return str;
+            if (str.length <= 16) return str;
+            const words = str.split(' ');
+            const lines = [];
+            let currentLine = '';
+            words.forEach(word => {
+                if ((currentLine + ' ' + word).trim().length > 16) {
+                    if (currentLine) lines.push(currentLine.trim());
+                    currentLine = word;
+                } else {
+                    currentLine += (currentLine ? ' ' : '') + word;
+                }
+            });
+            if (currentLine) lines.push(currentLine.trim());
+            return lines;
+        }
+
+        const chartTooltipConfig = {
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            const item = tooltipItems[0];
+                            let label = item.chart.data.labels[item.dataIndex];
+                            if (Array.isArray(label)) {
+                                return label.join(' ');
+                            } else {
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        function switchTab(tabId) {
+            document.querySelectorAll('section[id^="content-"]').forEach(sec => sec.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('bg-slate-800', 'text-slate-300');
+            });
+
+            document.getElementById(`content-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.classList.remove('bg-slate-800', 'text-slate-300');
+            activeBtn.classList.add('bg-indigo-600', 'text-white');
+
+            if (tabId === 'dashboard') renderDashboardCharts();
+            if (tabId === 'srpe') renderSrpeCharts();
+            if (tabId === 'readiness') renderHooperCharts();
+            if (tabId === 'zones') updateProfileZones();
+            if (tabId === 'garage') renderGarage();
+            if (tabId === 'habits') renderHabits();
+        }
+
+        function updateDashboard() {
+            let totalPlanMinutes = 0;
+            let totalRealMinutes = 0;
+            let totalLoad = 0;
+            let completedCount = 0;
+            let totalSessionsCount = 0;
+
+            const weekGrid = document.getElementById('weekGrid');
+            weekGrid.innerHTML = '';
+
+            appState.sessions.forEach((daySessions, dayIdx) => {
+                const dayName = appState.days[dayIdx];
+                const dayCard = document.createElement('div');
+                dayCard.className = "bg-slate-900 border border-slate-700/80 rounded-lg p-3 flex flex-col justify-between space-y-3";
+
+                let dayContent = `<div class="border-b border-slate-800 pb-2 flex justify-between items-center">
+                    <span class="font-bold text-slate-200 text-sm">${dayName}</span>
+                    <button onclick="addSessionToDay(${dayIdx})" class="text-xs text-indigo-400 hover:text-indigo-300">+ Extra</button>
+                </div><div class="space-y-2 flex-1">`;
+
+                daySessions.forEach((sess, sessIdx) => {
+                    totalSessionsCount++;
+                    totalPlanMinutes += Number(sess.planDuration || 0);
+                    if (sess.completed) {
+                        completedCount++;
+                        totalRealMinutes += Number(sess.realDuration || 0);
+                        totalLoad += (Number(sess.realDuration || 0) * Number(sess.rpe || 1));
+                    }
+
+                    const sportBadgeColor = sess.sport.includes('Course') ? 'text-amber-400 bg-amber-950/50 border-amber-800' :
+                        sess.sport.includes('Vélo') || sess.sport.includes('Home') ? 'text-emerald-400 bg-emerald-950/50 border-emerald-800' :
+                        sess.sport.includes('Volley') ? 'text-indigo-400 bg-indigo-950/50 border-indigo-800' : 'text-slate-300 bg-slate-800 border-slate-700';
+
+                    dayContent += `
+                        <div onclick="openModal(${dayIdx}, ${sessIdx})" class="p-2.5 rounded-lg border cursor-pointer transition hover:border-slate-500 ${sess.completed ? 'bg-slate-800/90 border-slate-700' : 'bg-slate-800/40 border-slate-800'}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${sportBadgeColor}">${sess.sport}</span>
+                                <span class="text-xs ${sess.completed ? 'text-emerald-400 font-bold' : 'text-slate-500'}">${sess.completed ? '✓ Fait' : 'Prévu'}</span>
+                            </div>
+                            <div class="text-xs font-semibold text-white truncate">${sess.title}</div>
+                            <div class="text-[11px] text-slate-400 mt-1 flex justify-between">
+                                <span>⏱️ ${sess.completed ? sess.realDuration : sess.planDuration}m</span>
+                                <span>⚡ RPE ${sess.rpe}</span>
+                            </div>
+                            ${sess.completed && sess.realDuration ? `<div class="text-[10px] text-amber-400/90 mt-1 font-mono">Charge: ${sess.realDuration * sess.rpe} UA</div>` : ''}
+                        </div>
+                    `;
+                });
+
+                dayContent += `</div>`;
+                dayCard.innerHTML = dayContent;
+                weekGrid.appendChild(dayCard);
+            });
+
+            document.getElementById('kpiTotalDuration').innerText = `${Math.floor(totalRealMinutes / 60)}h ${totalRealMinutes % 60}m`;
+            document.getElementById('kpiTotalDurationSub').innerText = `${Math.floor(totalPlanMinutes / 60)}h ${totalPlanMinutes % 60}m prévus`;
+            document.getElementById('kpiTotalLoad').innerText = `${totalLoad} UA`;
+            
+            const hooperAvg = ((20 - (appState.hooper.sleep + appState.hooper.fatigue + appState.hooper.soreness + appState.hooper.stress)) / 20 * 100).toFixed(0);
+            document.getElementById('kpiHooperAvg').innerText = `${hooperAvg}%`;
+
+            const completionRate = totalSessionsCount > 0 ? Math.round((completedCount / totalSessionsCount) * 100) : 0;
+            document.getElementById('kpiCompletion').innerText = `${completionRate}%`;
+            document.getElementById('kpiCompletionSub').innerText = `${completedCount} / ${totalSessionsCount} validées`;
+
+            renderDashboardCharts();
+        }
+
+        function renderDashboardCharts() {
+            const disciplineLoads = {};
+            const dailyMinutes = [0,0,0,0,0,0,0];
+            const dailyLoads = [0,0,0,0,0,0,0];
+
+            appState.sessions.forEach((day, idx) => {
+                day.forEach(sess => {
+                    if (sess.completed) {
+                        const load = sess.realDuration * sess.rpe;
+                        disciplineLoads[sess.sport] = (disciplineLoads[sess.sport] || 0) + load;
+                        dailyMinutes[idx] += sess.realDuration;
+                        dailyLoads[idx] += load;
+                    }
+                });
+            });
+
+            const pieCtx = document.getElementById('disciplinePieChart')?.getContext('2d');
+            if (pieCtx) {
+                if (charts.pie) charts.pie.destroy();
+                const labels = Object.keys(disciplineLoads).map(formatChartLabel);
+                charts.pie = new Chart(pieCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels.length ? labels : ['Aucune donnée'],
+                        datasets: [{
+                            data: Object.values(disciplineLoads).length ? Object.values(disciplineLoads) : [1],
+                            backgroundColor: ['#4F46E5', '#10B981', '#F59E0B', '#EC4899', '#6366F1', '#64748B']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        ...chartTooltipConfig
+                    }
+                });
+            }
+
+            const barCtx = document.getElementById('dailyLoadBarChart')?.getContext('2d');
+            if (barCtx) {
+                if (charts.bar) charts.bar.destroy();
+                charts.bar = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: appState.days.map(formatChartLabel),
+                        datasets: [
+                            {
+                                label: 'Durée (min)',
+                                data: dailyMinutes,
+                                backgroundColor: '#6366F1'
+                            },
+                            {
+                                label: 'Charge (sRPE UA)',
+                                data: dailyLoads,
+                                backgroundColor: '#F59E0B'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        ...chartTooltipConfig
+                    }
+                });
+            }
+        }
+
+        function renderSrpeCharts() {
+            const ctx = document.getElementById('srpeHistoryChart')?.getContext('2d');
+            if (!ctx) return;
+            if (charts.srpeHistory) charts.srpeHistory.destroy();
+
+            const weeks = ['S38', 'S39', 'S40', 'S41', 'S42 (En cours)'];
+            const volumes = [320, 380, 290, 410, 295];
+            const loads = [1800, 2250, 1400, 2600, 1850];
+
+            charts.srpeHistory = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: weeks.map(formatChartLabel),
+                    datasets: [
+                        {
+                            label: 'Charge Totale (UA)',
+                            data: loads,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Volume (Minutes)',
+                            data: volumes,
+                            borderColor: '#10B981',
+                            borderDash: [5, 5],
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { type: 'linear', position: 'left' },
+                        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
+                    },
+                    ...chartTooltipConfig
+                }
+            });
+        }
+
+        function renderHooperCharts() {
+            const ctx = document.getElementById('hooperTrendChart')?.getContext('2d');
+            if (!ctx) return;
+            if (charts.hooper) charts.hooper.destroy();
+
+            charts.hooper = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Sommeil', 'Fatigue', 'Courbatures', 'Stress'].map(formatChartLabel),
+                    datasets: [{
+                        label: 'Niveau (1 = Bon, 5 = Mauvais)',
+                        data: [
+                            appState.hooper.sleep,
+                            appState.hooper.fatigue,
+                            appState.hooper.soreness,
+                            appState.hooper.stress
+                        ],
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        borderColor: '#10B981',
+                        pointBackgroundColor: '#10B981'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: { min: 1, max: 5, ticks: { stepSize: 1 } }
+                    },
+                    ...chartTooltipConfig
+                }
+            });
+        }
+
+        function saveTodayHooper() {
+            appState.hooper.sleep = parseInt(document.getElementById('hooperSleep').value);
+            appState.hooper.fatigue = parseInt(document.getElementById('hooperFatigue').value);
+            appState.hooper.soreness = parseInt(document.getElementById('hooperSoreness').value);
+            appState.hooper.stress = parseInt(document.getElementById('hooperStress').value);
+            saveState();
+            renderHooperCharts();
+            alert('Forme matinale enregistrée !');
+        }
+
+        function updateProfileZones() {
+            const vma = parseFloat(document.getElementById('inputVma').value) || 17.5;
+            const ftp = parseInt(document.getElementById('inputFtp').value) || 280;
+            const fcMax = parseInt(document.getElementById('inputFcMax').value) || 192;
+
+            appState.profile = { vma, ftp, fcMax };
+            saveState();
+
+            const zones = [
+                { name: 'Z1 Récupération', pct: '< 65% VMA / < 55% FTP', speed: `< ${(vma*0.65).toFixed(1)} km/h`, watts: `< ${Math.round(ftp*0.55)} W`, hr: `< ${Math.round(fcMax*0.65)} bpm` },
+                { name: 'Z2 Endurance de Base', pct: '65-75% VMA / 55-75% FTP', speed: `${(vma*0.65).toFixed(1)} - ${(vma*0.75).toFixed(1)} km/h`, watts: `${Math.round(ftp*0.55)} - ${Math.round(ftp*0.75)} W`, hr: `${Math.round(fcMax*0.65)} - ${Math.round(fcMax*0.75)} bpm` },
+                { name: 'Z3 Tempo / SweetSpot', pct: '75-85% VMA / 75-90% FTP', speed: `${(vma*0.75).toFixed(1)} - ${(vma*0.85).toFixed(1)} km/h`, watts: `${Math.round(ftp*0.75)} - ${Math.round(ftp*0.90)} W`, hr: `${Math.round(fcMax*0.75)} - ${Math.round(fcMax*0.85)} bpm` },
+                { name: 'Z4 Seuil Anaérobie', pct: '85-95% VMA / 90-105% FTP', speed: `${(vma*0.85).toFixed(1)} - ${(vma*0.95).toFixed(1)} km/h`, watts: `${Math.round(ftp*0.90)} - ${Math.round(ftp*1.05)} W`, hr: `${Math.round(fcMax*0.85)} - ${Math.round(fcMax*0.95)} bpm` },
+                { name: 'Z5 PMA / VMA', pct: '95-105% VMA / 105-120% FTP', speed: `${(vma*0.95).toFixed(1)} - ${(vma*1.05).toFixed(1)} km/h`, watts: `${Math.round(ftp*1.05)} - ${Math.round(ftp*1.20)} W`, hr: `${Math.round(fcMax*0.95)}+ bpm` }
+            ];
+
+            const tbody = document.getElementById('zonesTableBody');
+            tbody.innerHTML = '';
+            zones.forEach(z => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50';
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-indigo-300">${z.name}</td>
+                    <td class="p-3 text-slate-400">${z.pct}</td>
+                    <td class="p-3 font-mono text-amber-400">${z.speed}</td>
+                    <td class="p-3 font-mono text-emerald-400">${z.watts}</td>
+                    <td class="p-3 font-mono text-slate-300">${z.hr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderGarage() {
+            const grid = document.getElementById('equipmentGrid');
+            grid.innerHTML = '';
+
+            appState.equipment.forEach(item => {
+                const pct = Math.min(100, Math.round((item.current / item.limit) * 100));
+                const statusColor = pct > 85 ? 'bg-rose-500' : pct > 60 ? 'bg-amber-500' : 'bg-emerald-500';
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 border border-slate-700 p-4 rounded-xl space-y-3";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-bold text-white text-md">${item.name}</h4>
+                            <span class="text-xs text-slate-400">${item.sport}</span>
+                        </div>
+                        <button onclick="deleteEquipment(${item.id})" class="text-xs text-rose-400 hover:text-rose-300">🗑️</button>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-300">${item.current} / ${item.limit} ${item.unit}</span>
+                            <span class="font-bold ${pct > 85 ? 'text-rose-400' : 'text-slate-300'}">${pct}% Usure</span>
+                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                            <div class="${statusColor} h-2.5 rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 pt-2 border-t border-slate-800">
+                        <button onclick="addDistanceToEquipment(${item.id}, 10)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded">+10 ${item.unit}</button>
+                        <button onclick="addDistanceToEquipment(${item.id}, 50)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded">+50 ${item.unit}</button>
+                        <button onclick="resetEquipment(${item.id})" class="text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1 rounded ml-auto">Réinitialiser</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openEquipmentModal() {
+            document.getElementById('equipmentModal').classList.remove('hidden');
+            document.getElementById('equipmentModal').classList.add('flex');
+        }
+
+        function closeEquipmentModal() {
+            document.getElementById('equipmentModal').classList.add('hidden');
+            document.getElementById('equipmentModal').classList.remove('flex');
+        }
+
+        function saveNewEquipment() {
+            const name = document.getElementById('eqName').value || 'Matériel';
+            const sport = document.getElementById('eqSport').value;
+            const current = parseFloat(document.getElementById('eqCurrent').value) || 0;
+            const limit = parseFloat(document.getElementById('eqLimit').value) || 500;
+            const unit = sport.includes('Volley') ? 'h' : 'km';
+
+            appState.equipment.push({
+                id: Date.now(),
+                name,
+                sport,
+                current,
+                limit,
+                unit
+            });
+
+            saveState();
+            closeEquipmentModal();
+            renderGarage();
+        }
+
+        function addDistanceToEquipment(id, amount) {
+            const item = appState.equipment.find(e => e.id === id);
+            if (item) {
+                item.current += amount;
+                saveState();
+                renderGarage();
+            }
+        }
+
+        function resetEquipment(id) {
+            const item = appState.equipment.find(e => e.id === id);
+            if (item && confirm('Réinitialiser le compteur de ce matériel ?')) {
+                item.current = 0;
+                saveState();
+                renderGarage();
+            }
+        }
+
+        function deleteEquipment(id) {
+            if (confirm('Supprimer cet équipement ?')) {
+                appState.equipment = appState.equipment.filter(e => e.id !== id);
+                saveState();
+                renderGarage();
+            }
+        }
+
+        function renderHabits() {
+            const tbody = document.getElementById('habitsTableBody');
+            tbody.innerHTML = '';
+
+            appState.habits.forEach(habit => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50';
+
+                const doneCount = habit.checks.filter(Boolean).length;
+
+                let rowHtml = `<td class="p-3 font-semibold text-white">${habit.name}</td>`;
+                habit.checks.forEach((chk, idx) => {
+                    rowHtml += `
+                        <td class="p-3 text-center">
+                            <input type="checkbox" ${chk ? 'checked' : ''} onchange="toggleHabitCheck(${habit.id}, ${idx})" class="w-4 h-4 rounded text-emerald-500 bg-slate-900 border-slate-700">
+                        </td>
+                    `;
+                });
+
+                rowHtml += `
+                    <td class="p-3 text-center font-bold ${doneCount >= habit.target ? 'text-emerald-400' : 'text-slate-400'}">${doneCount} / ${habit.target}</td>
+                    <td class="p-3 text-right">
+                        <button onclick="deleteHabit(${habit.id})" class="text-xs text-rose-400 hover:text-rose-300">🗑️</button>
+                    </td>
+                `;
+
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleHabitCheck(habitId, dayIndex) {
+            const habit = appState.habits.find(h => h.id === habitId);
+            if (habit) {
+                habit.checks[dayIndex] = !habit.checks[dayIndex];
+                saveState();
+                renderHabits();
+            }
+        }
+
+        function addNewHabit() {
+            const name = prompt('Nom de la routine / habitude :', 'Hydratation 2L+');
+            if (name) {
+                appState.habits.push({
+                    id: Date.now(),
+                    name: name,
+                    checks: [false, false, false, false, false, false, false],
+                    target: 5
+                });
+                saveState();
+                renderHabits();
+            }
+        }
+
+        function deleteHabit(habitId) {
+            if (confirm('Supprimer cette habitude ?')) {
+                appState.habits = appState.habits.filter(h => h.id !== habitId);
+                saveState();
+                renderHabits();
+            }
+        }
+
+        function openModal(dayIdx, sessIdx) {
+            const sess = appState.sessions[dayIdx][sessIdx];
+            document.getElementById('modalDayIndex').value = dayIdx;
+            document.getElementById('modalSessionIndex').value = sessIdx;
+            document.getElementById('modalSport').value = sess.sport;
+            document.getElementById('modalTitleInput').value = sess.title;
+            document.getElementById('modalPlanDuration').value = sess.planDuration;
+            document.getElementById('modalRealDuration').value = sess.realDuration || sess.planDuration;
+            document.getElementById('modalRpe').value = sess.rpe || 5;
+            document.getElementById('modalDistance').value = sess.distance || '';
+            document.getElementById('modalMetrics').value = sess.metrics || '';
+            document.getElementById('modalCompleted').checked = sess.completed;
+
+            document.getElementById('sessionModal').classList.remove('hidden');
+            document.getElementById('sessionModal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('sessionModal').classList.add('hidden');
+            document.getElementById('sessionModal').classList.remove('flex');
+        }
+
+        function saveSessionModal() {
+            const dayIdx = parseInt(document.getElementById('modalDayIndex').value);
+            const sessIdx = parseInt(document.getElementById('modalSessionIndex').value);
+
+            const sess = appState.sessions[dayIdx][sessIdx];
+            sess.sport = document.getElementById('modalSport').value;
+            sess.title = document.getElementById('modalTitleInput').value;
+            sess.planDuration = parseInt(document.getElementById('modalPlanDuration').value) || 0;
+            sess.realDuration = parseInt(document.getElementById('modalRealDuration').value) || 0;
+            sess.rpe = parseInt(document.getElementById('modalRpe').value) || 1;
+            sess.distance = parseFloat(document.getElementById('modalDistance').value) || 0;
+            sess.metrics = document.getElementById('modalMetrics').value;
+            sess.completed = document.getElementById('modalCompleted').checked;
+
+            saveState();
+            closeModal();
+            updateDashboard();
+        }
+
+        function addSessionToDay(dayIdx) {
+            appState.sessions[dayIdx].push({
+                sport: 'Course à pied',
+                title: 'Nouvelle Séance',
+                planDuration: 45,
+                realDuration: 45,
+                rpe: 5,
+                completed: false,
+                distance: 0,
+                metrics: ''
+            });
+            saveState();
+            updateDashboard();
+        }
+
+        function changeWeek(offset) {
+            appState.currentWeekIndex += offset;
+            document.getElementById('currentWeekDisplay').innerText = `Semaine ${appState.currentWeekIndex}`;
+            saveState();
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `protrack_athlete_S${appState.currentWeekIndex}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    appState = JSON.parse(e.target.result);
+                    saveState();
+                    location.reload();
+                } catch (err) {
+                    alert('Fichier JSON invalide.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDashboard();
+        });
+    </script>
+</body>
+</html>
